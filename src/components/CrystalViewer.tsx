@@ -92,8 +92,8 @@ function BlenderCrystals({ scrollProgress, modelPath }: { scrollProgress: any; m
   return (
     <group 
       ref={groupRef} 
-      scale={[1, 1, 1]} // Use original scale to match Blender coordinates
-      position={[0, 0, 0]} // No offset - use Blender's coordinate system
+      scale={[2.2, 2.2, 2.2]} // Scale up for better fit
+      position={[0, 0, 0]} // Keep centered
     >
       <primitive object={scene} />
     </group>
@@ -122,21 +122,8 @@ function CrystalScene({
 
   return (
     <>
-      {/* Mouse controls optimized for Blender camera position */}
-      <OrbitControls 
-        enablePan={true} // Allow panning to follow shards
-        enableZoom={true}
-        enableRotate={true}
-        minDistance={10}   // Minimum distance to see explosion
-        maxDistance={40}   // Maximum distance for overview
-        minPolarAngle={Math.PI * 0.1}
-        maxPolarAngle={Math.PI * 0.9}
-        target={[0, 0, 4]} // Look at the center of the crystal explosion area
-        autoRotate={false}
-        autoRotateSpeed={0.5}
-        enableDamping={true}
-        dampingFactor={performanceMode === 'high' ? 0.05 : 0.1}
-      />
+  {/* Orbit-style camera controls */}
+  <OrbitControls target={[0, 0, 0]} enablePan={true} enableZoom={true} enableRotate={true} />
       
       {/* Lighting to match Blender setup */}
       <ambientLight intensity={0.2} />
@@ -161,16 +148,7 @@ function CrystalScene({
         decay={2}
       />
       
-      {/* Helper to visualize the explosion bounds (remove in production) */}
-      {process.env.NODE_ENV === 'development' && (
-        <>
-          {/* Explosion boundary visualization */}
-          <mesh position={[0, 0, 4]}>
-            <boxGeometry args={[30, 1, 18]} />
-            <meshBasicMaterial color="red" wireframe opacity={0.1} transparent />
-          </mesh>
-        </>
-      )}
+      {/* Removed wireframe/explosion bounds visualization for clean view */}
 
       {/* Your actual Blender crystals with loading fallback */}
       <Suspense fallback={
@@ -198,12 +176,18 @@ export default function CrystalViewer() {
   const frameCountRef = useRef(0);
   const lastTimeRef = useRef(performance.now());
 
+  // Camera rotation state (degrees)
+  const [cameraRotation, setCameraRotation] = useState({ yaw: 0, pitch: 0, roll: 0 });
+  
+  // Camera position state
+  const [cameraPosition, setCameraPosition] = useState({ x: 0, y: 0, z: 95 });
+
   // Adaptive performance adjustment
   const checkPerformance = () => {
     frameCountRef.current++;
     const now = performance.now();
     
-    if (now - lastTimeRef.current >= 1000) { // Check every second
+    if (now - lastTimeRef.current >= 1000) { 
       const fps = frameCountRef.current;
       fpsRef.current = fps;
       frameCountRef.current = 0;
@@ -237,8 +221,8 @@ export default function CrystalViewer() {
       <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
         <Canvas
           camera={{ 
-            position: [0, -20, 4], // Match Blender camera position exactly
-            fov: 75, // Wider FOV to capture the full explosion range (-15 to +15 units)
+            position: [cameraPosition.x, cameraPosition.y, cameraPosition.z], // Dynamic camera position
+            fov: 45, // Use previous FOV unless Blender FOV is specified
             near: 0.1,
             far: 100
           }}
@@ -252,17 +236,22 @@ export default function CrystalViewer() {
             logarithmicDepthBuffer: false,
             preserveDrawingBuffer: false
           }}
-          dpr={performanceMode === 'high' ? Math.min(window.devicePixelRatio, 1.5) : 1} // Adaptive DPR
-          frameloop="demand" // Only render when needed
-          onCreated={({ gl }) => {
-            console.log('WebGL Renderer created:', gl.getContext());
-            // Optimize renderer settings
+          dpr={performanceMode === 'high' ? Math.min(window.devicePixelRatio, 1.5) : 1}
+          frameloop="demand"
+          onCreated={({ gl, camera }) => {
             gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.NoToneMapping;
             gl.domElement.addEventListener('webglcontextlost', (e) => {
-              console.error('WebGL context lost event:', e);
               setCanvasError('WebGL context lost. Try reloading the page or closing other GPU-intensive apps.');
             });
+            camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z); // Dynamic camera position
+            // Convert degrees to radians for rotation
+            camera.rotation.set(
+              (cameraRotation.pitch * Math.PI) / 180,
+              (cameraRotation.yaw * Math.PI) / 180,
+              (cameraRotation.roll * Math.PI) / 180
+            );
+            camera.lookAt(0, 0, 0); // Always look at the crystal
           }}
         >
           <CrystalScene 
@@ -280,6 +269,10 @@ export default function CrystalViewer() {
         fps={fpsRef.current}
         modelPath={modelPath}
         onModelChange={setModelPath}
+        cameraRotation={cameraRotation}
+        onCameraRotationChange={setCameraRotation}
+        cameraPosition={cameraPosition}
+        onCameraPositionChange={setCameraPosition}
       />
       
     </motion.div>
