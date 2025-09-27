@@ -10,6 +10,8 @@ interface PerformanceSettingsProps {
   onCameraRotationChange: (r: { yaw: number; pitch: number; roll: number }) => void;
   cameraPosition: { x: number; y: number; z: number };
   onCameraPositionChange: (p: { x: number; y: number; z: number }) => void;
+  controlMode?: 'scroll' | 'manual';
+  onControlModeChange?: (mode: 'scroll' | 'manual') => void;
 }
 
 export default function PerformanceSettings({
@@ -21,7 +23,9 @@ export default function PerformanceSettings({
   cameraRotation,
   onCameraRotationChange,
   cameraPosition,
-  onCameraPositionChange
+  onCameraPositionChange,
+  controlMode = 'scroll',
+  onControlModeChange
 }: PerformanceSettingsProps) {
   // This array was misplaced inside the function's parameters.
   // It should be inside the function's body.
@@ -34,6 +38,36 @@ export default function PerformanceSettings({
   return (
     <div className="absolute top-8 right-8 text-white z-10 bg-black/50 backdrop-blur-sm rounded-lg p-4 w-72">
       <h4 className="text-lg font-semibold mb-3">Performance Settings</h4>
+
+      {/* Control Mode Toggle - Fix touchpad issues */}
+      {onControlModeChange && (
+        <div className="mb-4 p-3 bg-yellow-900/30 rounded border border-yellow-600/30">
+          <label className="text-sm text-yellow-200 block mb-2">
+            🎮 Control Mode {controlMode === 'scroll' ? '(Touchpad Issues? Try Manual)' : ''}
+          </label>
+          <div className="flex gap-2">
+            {(['scroll', 'manual'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => onControlModeChange(mode)}
+                className={`px-3 py-1 rounded text-xs transition-colors ${
+                  controlMode === mode
+                    ? 'bg-yellow-600 text-white'
+                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                }`}
+              >
+                {mode === 'scroll' ? 'Scroll Animation' : 'Manual Camera'}
+              </button>
+            ))}
+          </div>
+          <div className="text-xs text-yellow-300 mt-1">
+            {controlMode === 'scroll' 
+              ? 'Crystal animates with page scroll' 
+              : 'Use mouse/touch to control camera'
+            }
+          </div>
+        </div>
+      )}
 
       {/* FPS Display */}
       <div className="mb-4">
