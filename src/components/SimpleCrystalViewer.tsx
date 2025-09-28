@@ -233,7 +233,7 @@ function AncientTechParticles() {
 
 function SimpleCrystals({ scrollProgress, modelPath }: { scrollProgress: any; modelPath: string }) {
   const groupRef = useRef<THREE.Group>(null);
-  const materialRef = useRef<THREE.ShaderMaterial[]>([]);
+  const materialRef = useRef<(THREE.ShaderMaterial | THREE.MeshToonMaterial)[]>([]);
   
   // Load the model
   const { scene, animations } = useGLTF(modelPath);
@@ -355,7 +355,7 @@ function SimpleCrystals({ scrollProgress, modelPath }: { scrollProgress: any; mo
       
       // Update shader uniforms for all crystal materials
       materialRef.current.forEach((material) => {
-        if (material && material.uniforms) {
+        if ('uniforms' in material) {
           material.uniforms.time.value = time;
           material.uniforms.scrollProgress.value = progress;
         }
@@ -374,9 +374,18 @@ function SimpleCrystals({ scrollProgress, modelPath }: { scrollProgress: any; mo
     }
   });
 
-  // Apply enhanced materials to crystals
+  // Apply cartoon/cel-shaded materials to crystals
   if (scene) {
     let crystalIndex = 0;
+    const palette = [
+      '#F5A623', // orange
+      '#D28B6C', // light brown
+      '#4B2C3B', // dark plum
+      '#181A22', // deep navy
+      '#004C5A', // teal blue
+      '#00707B', // blue-green
+      '#5BA7B7', // sky blue
+    ];
     scene.traverse((child: any) => {
       if (child.isMesh) {
         // Hide ground objects
@@ -386,35 +395,31 @@ function SimpleCrystals({ scrollProgress, modelPath }: { scrollProgress: any; mo
           child.visible = false;
           return;
         }
-        
-        // Apply enhanced shader material to crystal pieces with distinct colors
+        // Apply cartoon/cel-shaded material to crystal pieces
         if (child.name && child.name.toLowerCase().includes('crystal')) {
-          const material = createEnhancedCrystalMaterial();
-          
-          // Set distinct crystal ID for color variation
-          material.uniforms.crystalId.value = crystalIndex;
-          
-          // Override colors for specific crystals to ensure distinct looks
-          const colorVariants = [
-            { primary: '#9f7aea', secondary: '#7c3aed', accent: '#f093fb' }, // Purple crystal
-            { primary: '#4299e1', secondary: '#3182ce', accent: '#90cdf4' }, // Blue crystal  
-            { primary: '#f6ad55', secondary: '#ed8936', accent: '#fbd38d' }, // Orange crystal
-            { primary: '#48bb78', secondary: '#38a169', accent: '#9ae6b4' }, // Green crystal
-            { primary: '#ed8936', secondary: '#dd6b20', accent: '#fbb6ce' }, // Red-orange crystal
-            { primary: '#667eea', secondary: '#5a67d8', accent: '#a3bffa' }, // Indigo crystal
-          ];
-          
-          const colorSet = colorVariants[crystalIndex % colorVariants.length];
-          material.uniforms.primaryColor.value = new THREE.Color(colorSet.primary);
-          material.uniforms.secondaryColor.value = new THREE.Color(colorSet.secondary);
-          material.uniforms.accentColor.value = new THREE.Color(colorSet.accent);
-          
-          child.material = material;
+          const colorHex = palette[crystalIndex % palette.length];
+          // Toon material with strong color, no transparency/reflection
+          const toonMaterial = new THREE.MeshToonMaterial({
+            color: colorHex,
+            gradientMap: THREE.TextureLoader ? new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/gradientMaps/threeTone.jpg') : null,
+            emissive: colorHex,
+            emissiveIntensity: 0.18,
+            transparent: false,
+          });
+          child.material = toonMaterial;
           child.frustumCulled = true;
-          
-          // Store reference for animation updates
-          materialRef.current.push(material);
-          
+          materialRef.current.push(toonMaterial);
+          // Add bold outline by rendering backfaces in black, slightly scaled up
+          const outlineGeom = child.geometry.clone();
+          const outlineMat = new THREE.MeshBasicMaterial({ color: '#000', side: THREE.BackSide });
+          const outlineMesh = new THREE.Mesh(outlineGeom, outlineMat);
+          outlineMesh.position.copy(child.position);
+          outlineMesh.rotation.copy(child.rotation);
+          outlineMesh.scale.copy(child.scale).multiplyScalar(1.07); // Slightly larger for outline
+          outlineMesh.renderOrder = child.renderOrder - 1;
+          if (child.parent) {
+            child.parent.add(outlineMesh);
+          }
           crystalIndex++;
         }
       }
