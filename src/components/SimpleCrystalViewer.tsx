@@ -395,10 +395,10 @@ function SimpleCrystals({ scrollProgress, modelPath }: { scrollProgress: any; mo
           child.visible = false;
           return;
         }
-        // Apply cartoon/cel-shaded material to crystal pieces
+        // Apply cartoon/cel-shaded material, outline, and edge lines to crystal shards
         if (child.name && child.name.toLowerCase().includes('crystal')) {
           const colorHex = palette[crystalIndex % palette.length];
-          // Toon material with strong color, no transparency/reflection
+          // Toon material
           const toonMaterial = new THREE.MeshToonMaterial({
             color: colorHex,
             gradientMap: THREE.TextureLoader ? new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/gradientMaps/threeTone.jpg') : null,
@@ -415,10 +415,21 @@ function SimpleCrystals({ scrollProgress, modelPath }: { scrollProgress: any; mo
           const outlineMesh = new THREE.Mesh(outlineGeom, outlineMat);
           outlineMesh.position.copy(child.position);
           outlineMesh.rotation.copy(child.rotation);
-          outlineMesh.scale.copy(child.scale).multiplyScalar(1.07); // Slightly larger for outline
+          outlineMesh.scale.copy(child.scale).multiplyScalar(1.07);
           outlineMesh.renderOrder = child.renderOrder - 1;
           if (child.parent) {
             child.parent.add(outlineMesh);
+          }
+          // Add edge lines for sharp cartoon edges
+          const edgeGeom = new THREE.EdgesGeometry(child.geometry, 30);
+          const edgeMat = new THREE.LineBasicMaterial({ color: '#000', linewidth: 2 });
+          const edgeLines = new THREE.LineSegments(edgeGeom, edgeMat);
+          edgeLines.position.copy(child.position);
+          edgeLines.rotation.copy(child.rotation);
+          edgeLines.scale.copy(child.scale).multiplyScalar(1.01);
+          edgeLines.renderOrder = child.renderOrder + 1;
+          if (child.parent) {
+            child.parent.add(edgeLines);
           }
           crystalIndex++;
         }
@@ -448,56 +459,10 @@ function SimpleScene({
     <>
       <OrbitControls target={[0, 0, 0]} enablePan={true} enableZoom={true} enableRotate={true} />
       
-      {/* Subtle background - crystals are the star */}
-      <AncientTechBackground />
-      
-      {/* Crystal-focused dramatic lighting */}
-      <ambientLight intensity={0.2} color="#f4f1de" />
-      
-      {/* Primary crystal spotlight */}
-      <directionalLight 
-        position={[20, 25, 20]} 
-        intensity={2.0} 
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Secondary crystal accent light */}
-      <directionalLight 
-        position={[-15, 20, -10]} 
-        intensity={1.5} 
-        color="#f8f8ff"
-        castShadow={false}
-      />
-      
-      {/* Crystal rim lighting from below */}
-      <pointLight 
-        position={[0, -30, 15]} 
-        intensity={1.8} 
-        distance={80}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Crystal definition light */}
-      <pointLight 
-        position={[25, 15, 25]} 
-        intensity={1.2} 
-        distance={60}
-        color="#f0f8ff"
-        castShadow={false}
-      />
-      
-      {/* Additional crystal pop light */}
-      <spotLight
-        position={[0, 40, 0]}
-        angle={Math.PI / 3}
-        penumbra={0.1}
-        intensity={1.5}
-        color="#ffffff"
-        target-position={[0, 0, 0]}
-        castShadow={false}
-      />
+      {/* Bright ambient and directional lighting for white background */}
+      <ambientLight intensity={1.2} color="#ffffff" />
+      <directionalLight position={[20, 25, 20]} intensity={2.5} color="#ffffff" />
+      <directionalLight position={[-15, 20, -10]} intensity={2.0} color="#ffffff" />
       
       <Suspense fallback={
         <mesh>
@@ -514,7 +479,7 @@ function SimpleScene({
 export default function SimpleCrystalViewer() {
   const containerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll()
-  const [modelPath, setModelPath] = useState('/crystals_uniform_mesh.glb');
+    const [modelPath, setModelPath] = useState('/cartoon_crystals_colored_outline.glb');
   const [cameraPosition, setCameraPosition] = useState({ x: 0, y: 0, z: 95 });
   const [cameraRotation, setCameraRotation] = useState({ yaw: 0, pitch: 0, roll: 0 });
   const [controlMode, setControlMode] = useState<'scroll' | 'manual'>('scroll');
@@ -526,7 +491,7 @@ export default function SimpleCrystalViewer() {
       className="w-full h-screen sticky top-0 relative"
       style={{
         minHeight: '100vh',
-        background: 'radial-gradient(ellipse at center, #f7fafc 0%, #e2e8f0 60%, #cbd5e1 100%)'
+        background: '#fff'
       }}
     >
       <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
